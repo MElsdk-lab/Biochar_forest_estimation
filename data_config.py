@@ -150,7 +150,7 @@ FAO_name_fix = {
 
 
 # ── 4. FAO FRA 2025 Forest Area by Country (1 000 ha) ────────────────────────
-fao_fra_2025_data = [
+fao_fra_2025_raw_data = [
     # country, 1990, 2000, 2010, 2015, 2020, 2025
     ["Afghanistan", 1209, 1209, 1209, 1209, 1209, 1209],
     ["Albania", 789, 769, 782, 797, 941, 941],
@@ -349,8 +349,8 @@ fao_fra_2025_data = [
     ["Zimbabwe", 16715, 15658, 14601, 14303, 14031, 13766],
 ]
 
-fao_fra_2025 = pd.DataFrame(
-    fao_fra_2025_data,
+fao_fra_2025_raw_data = pd.DataFrame(
+    fao_fra_2025_raw_data,
     columns=['country', '1990', '2000', '2010', '2015', '2020', '2025']
 )
 
