@@ -380,6 +380,98 @@ def build_country_lookup(regions):
 country_thresholds = [10, 20, 30, 40, 50]
 state_thresholds   = [10, 20, 30, 40, 50]
 
+# ── 7. FAO FRA 2025 Regional Detailed Tables ─────────────────────────────────
+# Source: FAO FRA 2025 regional summary tables 
+#Link: https://openknowledge.fao.org/server/api/core/bitstreams/2dee6e93-1988-4659-aa89-30dd20b43b15/content/FRA-2025/annexes.html
+# Units: Million ha (unless otherwise noted)
+
+fao_fra_2025_world = pd.DataFrame([
+    ["Forest area",                   4344, 4237, 4201, 4181, 4165, 4140],
+    ["Naturally regenerating forest", 4133, 3994, 3915, 3878, 3843, 3808],
+    ["Planted forest",                 184,  215,  258,  275,  294,  304],
+    ["Plantation forest",               86,  102,  130,  140,  152,  157],
+    ["Primary forest",                1238, 1203, 1160, 1144, 1135, 1128],
+    ["Mangroves",                     15.3, 15.0, 14.9, 14.9, 15.1, 15.5],
+    ["Forest in protected areas",      507,  567,  684,  717,  733,  758],
+    ["Forest with management plans",  1711, 1801, 1930, 1992, 2046, 2076],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+fao_fra_2025_africa = pd.DataFrame([
+    ["Forest area",                    780,  747,  713,  692,  677,  663],
+    ["Naturally regenerating forest",  771,  737,  702,  680,  664,  649],
+    ["Planted forest",                 8.9,  9.9, 11.3, 12.2, 13.3, 14.1],
+    ["Plantation forest",              8.2,  8.9,  9.8, 10.3, 11.2, 11.8],
+    ["Primary forest",                 191,  184,  175,  169,  166,  163],
+    ["Mangroves",                     3.31, 3.24, 3.24, 3.31, 3.25, 3.28],
+    ["Forest in protected areas",      119,  122,  135,  144,  146,  154],
+    ["Forest with management plans",    75,   73,   92,  112,  125,  143],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+fao_fra_2025_asia = pd.DataFrame([
+    ["Forest area",                    582,  578,  605,  614,  624,  630],
+    ["Naturally regenerating forest",  497,  480,  486,  486,  483,  484],
+    ["Planted forest",                  85,   98,  120,  128,  141,  146],
+    ["Plantation forest",               58,   68,   85,   90,  100,  104],
+    ["Primary forest",                  95,   85,   81,   80,   82,   82],
+    ["Mangroves",                     6.03, 6.10, 5.85, 5.66, 5.69, 6.10],
+    ["Forest in protected areas",      100,  119,  145,  148,  152,  154],
+    ["Forest with management plans",   228,  289,  318,  339,  364,  365],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+fao_fra_2025_europe = pd.DataFrame([
+    ["Forest area",                    998, 1006, 1021, 1025, 1033, 1039],
+    ["Naturally regenerating forest",  913,  916,  925,  927,  934,  939],
+    ["Planted forest",                  57,   62,   68,   70,   71,   71],
+    ["Plantation forest",              3.6,  4.0,  4.4,  4.2,  4.1,  4.1],
+    ["Primary forest",                 304,  305,  308,  309,  309,  310],
+    ["Mangroves",                        0,    0,    0,    0,    0,    0],
+    ["Forest in protected areas",      164,  178,  203,  214,  219,  227],
+    ["Forest with management plans",   932,  935,  942,  947,  956,  962],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+fao_fra_2025_north_central_america = pd.DataFrame([
+    ["Forest area",                    771,  768,  776,  779,  778,  776],
+    ["Naturally regenerating forest",  748,  735,  735,  735,  730,  726],
+    ["Planted forest",                23.1, 32.7, 40.8, 44.0, 47.4, 49.8],
+    ["Plantation forest",              6.4,  9.2, 13.3, 14.0, 15.2, 15.4],
+    ["Primary forest",                 266,  261,  245,  238,  235,  235],
+    ["Mangroves",                     2.32, 2.32, 2.35, 2.34, 2.35, 2.38],
+    ["Forest in protected areas",     42.0, 51.5, 72.5, 73.8, 76.8, 81.1],
+    ["Forest with management plans",   415,  426,  440,  449,  447,  447],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+fao_fra_2025_oceania = pd.DataFrame([
+    ["Forest area",                    184,  183,  181,  182,  183,  184],
+    ["Naturally regenerating forest",  182,  179,  176,  178,  179,  179],
+    ["Planted forest",                2.84, 3.84, 4.71, 4.69, 4.62, 4.92],
+    ["Plantation forest",             2.81, 3.81, 4.37, 4.35, 4.28, 4.55],
+    ["Primary forest",                39.1, 38.9, 38.8, 38.6, 38.5, 38.3],
+    ["Mangroves",                     1.48, 1.21, 1.34, 1.28, 1.54, 1.54],
+    ["Forest in protected areas",     19.2, 22.6, 27.6, 28.9, 29.1, 29.1],
+    ["Forest with management plans",  11.4, 12.1, 12.5, 12.4, 12.5, 12.5],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+fao_fra_2025_south_america = pd.DataFrame([
+    ["Forest area",                   1028,  955,  906,  890,  870,  849],
+    ["Naturally regenerating forest", 1022,  946,  892,  872,  853,  831],
+    ["Planted forest",                 6.6,  8.6, 13.9, 17.2, 17.2, 17.3],
+    ["Plantation forest",              6.6,  8.6, 13.9, 17.1, 17.2, 17.3],
+    ["Primary forest",                 342,  329,  313,  309,  303,  299],
+    ["Mangroves",                     2.21, 2.17, 2.09, 2.28, 2.26, 2.23],
+    ["Forest in protected areas",       63,   73,  102,  108,  110,  112],
+    ["Forest with management plans",    50,   65,  125,  134,  141,  147],
+], columns=['variable', '1990', '2000', '2010', '2015', '2020', '2025'])
+
+# ── Summary: forest area only by region ──────────────────────────────────────
+fao_fra_2025_regional = pd.DataFrame([
+    ["Africa",                   780, 747, 713, 692, 677, 663],
+    ["Asia",                     582, 578, 605, 614, 624, 630],
+    ["Europe",                   998, 1006, 1021, 1025, 1033, 1039],
+    ["North and Central America", 771, 768, 776, 779, 778, 776],
+    ["Oceania",                  184, 183, 181, 182, 183, 184],
+    ["South America",           1028, 955, 906, 890, 870, 849],
+    ["World",                   4344, 4237, 4201, 4181, 4165, 4140],
+], columns=['region', '1990', '2000', '2010', '2015', '2020', '2025'])
 
 # ── Confirm loaded ────────────────────────────────────────────────────────────
 if __name__ == '__main__':
@@ -387,4 +479,12 @@ if __name__ == '__main__':
     print(f'✅ us_state_names: {len(us_state_names)} states')
     print(f'✅ FAO_name_fix: {len(FAO_name_fix)} entries')
     print(f'✅ fao_fra_2025: {len(fao_fra_2025)} countries')
+    print(f'✅ fao_fra_2025_regional: {len(fao_fra_2025_regional)} regions + world')
+    print(f'✅ fao_fra_2025_world: {len(fao_fra_2025_world)} variables')
+    print(f'✅ fao_fra_2025_africa: {len(fao_fra_2025_africa)} variables')
+    print(f'✅ fao_fra_2025_asia: {len(fao_fra_2025_asia)} variables')
+    print(f'✅ fao_fra_2025_europe: {len(fao_fra_2025_europe)} variables')
+    print(f'✅ fao_fra_2025_north_central_america: {len(fao_fra_2025_north_central_america)} variables')
+    print(f'✅ fao_fra_2025_oceania: {len(fao_fra_2025_oceania)} variables')
+    print(f'✅ fao_fra_2025_south_america: {len(fao_fra_2025_south_america)} variables')
     print(f'✅ Total FAO_LSIB countries: {len(get_all_countries(FAO_LSIB_REGION))}')
