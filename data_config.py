@@ -354,6 +354,18 @@ fao_fra_2025 = pd.DataFrame(
     columns=['country', '1990', '2000', '2010', '2015', '2020', '2025']
 )
 
+# ── CELL 5: Clean FAO FRA data ───────────────────────────
+
+#fix name to fit the GEE export
+fao_fra_2025['country'] = fao_fra_2025['country'].replace(FAO_name_fix)
+
+# convert all years from 1000 ha to Mha
+year_columns = ['1990', '2000', '2010', '2015', '2020', '2025']
+fao_fra_2025[year_columns] = fao_fra_2025[year_columns] / 1000
+
+
+print(fao_fra_2025.head())
+
 # ── 5. Helper Functions ───────────────────────────────────────────────────────
 def get_all_countries(regions):
     """Return a flat sorted list of all country names."""
