@@ -94,7 +94,7 @@ FAO_LSIB_REGION = {
 }
 
 
-# ── High forest region country lists ─────────────────────
+# ──  region country lists ─────────────────────
 
 americas_countries = [c for sub in FAO_LSIB_REGION["Americas"].values() for c in sub]
 
@@ -115,6 +115,13 @@ near_east_countries = [
     for c in sub
 ]
 
+# ──  region country lists with keeping the same strucutre  ─────────────────────
+
+americas_region = {"Americas": FAO_LSIB_REGION["Americas"]}
+europe_region   = {"Europe": FAO_LSIB_REGION["Europe"]}
+africa_region   = {"Africa": FAO_LSIB_REGION["Africa"]}
+asia_region     = {"Asia and the Pacific": FAO_LSIB_REGION["Asia and the Pacific"]}
+near_east_region = {"Near East": FAO_LSIB_REGION["Near East"]}
 
 
 # ── 2. US State Names ─────────────────────────────────────────────────────────
