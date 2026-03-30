@@ -110,6 +110,13 @@ asia_pacific_countries = [
     for c in sub
 ]
 
+near_east_countries = [
+    c for key, sub in FAO_LSIB_REGION["Near East"].items()
+    for c in sub
+]
+
+
+
 # ── 2. US State Names ─────────────────────────────────────────────────────────
 us_state_names = [
     "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
