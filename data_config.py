@@ -381,7 +381,7 @@ fao_fra_2025_raw_data = [
 
 fao_fra_2025_raw_data = pd.DataFrame(
     fao_fra_2025_raw_data,
-    columns=['country', '1990', '2000', '2010', '2015', '2020', '2025']
+    columns=['country', '1990_area_Mha', '2000_area_Mha', '2010_area_Mha', '2015_area_Mha', '2020_area_Mha', '2025_area_Mha']
 )
 
 
