@@ -1,0 +1,16 @@
+bin,threshold,r_squared,average deviation
+Low (< 4 Mha),10,0.521,57.8
+Low (< 4 Mha),20,0.614,51.0
+Low (< 4 Mha),30,0.683,49.2
+Low (< 4 Mha),40,0.69,48.6
+Low (< 4 Mha),50,0.665,49.2
+Medium (4-37 Mha),10,0.485,31.3
+Medium (4-37 Mha),20,0.508,28.7
+Medium (4-37 Mha),30,0.496,26.2
+Medium (4-37 Mha),40,0.486,22.8
+Medium (4-37 Mha),50,0.458,28.1
+High (> 37 Mha),10,0.972,24.0
+High (> 37 Mha),20,0.969,18.1
+High (> 37 Mha),30,0.967,24.4
+High (> 37 Mha),40,0.963,25.0
+High (> 37 Mha),50,0.952,29.6
