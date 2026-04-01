@@ -1,0 +1,10 @@
+bin,estimation,country
+Low (< 4 Mha),mixed,28
+Low (< 4 Mha),overestimated,44
+Low (< 4 Mha),underestimated,42
+Medium (4-37 Mha),mixed,16
+Medium (4-37 Mha),overestimated,17
+Medium (4-37 Mha),underestimated,25
+High (> 37 Mha),mixed,9
+High (> 37 Mha),overestimated,6
+High (> 37 Mha),underestimated,5
