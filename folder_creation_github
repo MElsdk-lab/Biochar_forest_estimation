@@ -1,0 +1,165 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyNWOc/0JOVLf6YcVZ2IQs4v",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/MElsdk-lab/Biochar_forest_estimation/blob/main/folder_creation_github\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# ── CELL 2: clone repo if not already cloned ─────────────────────\n",
+        "import os\n",
+        "import getpass\n",
+        "import subprocess\n",
+        "\n",
+        "if not os.path.exists('/content/Biochar_forest_estimation'):\n",
+        "    PAT = getpass.getpass('Enter PAT: ')\n",
+        "    !git config --global user.email \"sdkmajd@gmail.com\"\n",
+        "    !git config --global user.name \"MElsdk-lab\"\n",
+        "    subprocess.run(\n",
+        "        f'git clone https://{PAT}@github.com/MElsdk-lab/Biochar_forest_estimation.git',\n",
+        "        shell=True\n",
+        "    )\n",
+        "\n",
+        "%cd /content/Biochar_forest_estimation/\n",
+        "!git fetch origin\n",
+        "!git reset --hard origin/main\n",
+        "\n",
+        "DATA_folder = '/content/Biochar_forest_estimation/data/'\n",
+        "\n",
+        "print('✅ Ready')"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "9mTQBpH-ApKm",
+        "outputId": "9c67f15a-cc66-4a34-e0b4-1353e9f5036c"
+      },
+      "execution_count": 1,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "/content/Biochar_forest_estimation\n",
+            "remote: Enumerating objects: 3, done.\u001b[K\n",
+            "remote: Counting objects: 100% (3/3), done.\u001b[K\n",
+            "remote: Compressing objects: 100% (2/2), done.\u001b[K\n",
+            "remote: Total 2 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)\u001b[K\n",
+            "Unpacking objects: 100% (2/2), 859 bytes | 859.00 KiB/s, done.\n",
+            "From https://github.com/MElsdk-lab/Biochar_forest_estimation\n",
+            "   f92a4f5..cf25005  main       -> origin/main\n",
+            "warning: unable to unlink 'figures': Is a directory\n",
+            "HEAD is now at cf25005 Delete figures\n",
+            "✅ Ready\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 2,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "fyt8h8zsAmBS",
+        "outputId": "39249e2d-a785-412c-8634-14d7fabbcbcc"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "✅ figures folder created\n"
+          ]
+        }
+      ],
+      "source": [
+        "\n",
+        "# Create the folder\n",
+        "os.makedirs('/content/Biochar_forest_estimation/figures', exist_ok=True)\n",
+        "\n",
+        "# Add a placeholder so git tracks it\n",
+        "with open('/content/Biochar_forest_estimation/figures/.gitkeep', 'w') as f:\n",
+        "    pass\n",
+        "\n",
+        "print('✅ figures folder created')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# ── push results to GitHub ────────────────────────────────\n",
+        "import subprocess\n",
+        "\n",
+        "# ask for PAT only if not already defined\n",
+        "if 'PAT' not in globals():\n",
+        "    import getpass\n",
+        "    PAT = getpass.getpass('Enter PAT: ')\n",
+        "\n",
+        "%cd /content/Biochar_forest_estimation/\n",
+        "!git add .\n",
+        "!git commit -m \"update results\"\n",
+        "\n",
+        "result = subprocess.run(\n",
+        "    f'git push https://{PAT}@github.com/MElsdk-lab/Biochar_forest_estimation.git main',\n",
+        "    shell=True,\n",
+        "    capture_output=True,\n",
+        "    text=True\n",
+        ")\n",
+        "\n",
+        "if result.returncode == 0:\n",
+        "    print('✅ Pushed to GitHub')\n",
+        "else:\n",
+        "    print('❌ Push failed')\n",
+        "    print(result.stderr)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "IlR4h350AuRp",
+        "outputId": "d80e812c-0bf3-4450-fa71-9887258533d9"
+      },
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Enter PAT: ··········\n",
+            "/content/Biochar_forest_estimation\n",
+            "[main 4475c51] update results\n",
+            " 1 file changed, 0 insertions(+), 0 deletions(-)\n",
+            " create mode 100644 figures/.gitkeep\n",
+            "✅ Pushed to GitHub\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
