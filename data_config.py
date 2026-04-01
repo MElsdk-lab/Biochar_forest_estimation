@@ -504,6 +504,20 @@ fao_fra_2025_regional = pd.DataFrame([
     ["World",                   4344, 4237, 4201, 4181, 4165, 4140],
 ], columns=['region', '1990', '2000', '2010', '2015', '2020', '2025'])
 
+
+# ──   ────────────────────────────────────────────────────────────
+
+
+testing_sample = [
+    # Americas
+    'United States', 'Canada', 'Brazil',
+    # Europe (with Russia)
+    'France', 'Spain', 'Italy', 'Sweden', 'Finland', 'Norway', 'Poland', 'Russia',
+    # Asia
+    'China', 'India', 'Indonesia', 'Malaysia',
+    # Africa
+    'Dem Rep of the Congo', 'Cameroon', 'Tanzania', 'Nigeria', 'Ethiopia', 'South Africa'
+]
 # ── Confirm loaded ────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     print(f'✅ FAO_LSIB_REGION: {len(FAO_LSIB_REGION)} regions')
