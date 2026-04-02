@@ -7,6 +7,22 @@
 import pandas as pd
 
 
+
+# Forest Class Definitions
+forestClasses = [
+    {'code': 51, 'color': '4c7300', 'name': '51 Open evergreen broadleaved'},
+    {'code': 52, 'color': '006400', 'name': '52 Closed evergreen broadleaved'},
+    {'code': 61, 'color': 'a8c800', 'name': '61 Open deciduous broadleaved'},
+    {'code': 62, 'color': '00a000', 'name': '62 Closed deciduous broadleaved'},
+    {'code': 71, 'color': '005000', 'name': '71 Open evergreen needleleaved'},
+    {'code': 72, 'color': '003c00', 'name': '72 Closed evergreen needleleaved'},
+    {'code': 81, 'color': '286400', 'name': '81 Open deciduous needleleaved'},
+    {'code': 82, 'color': '285000', 'name': '82 Closed deciduous needleleaved'},
+    {'code': 91, 'color': 'a0b432', 'name': '91 Open mixed forest'},
+    {'code': 92, 'color': '788200', 'name': '92 Closed mixed forest'},
+]
+
+
 # ── 1. FAO Regional Classification (LSIB-aligned) ────────────────────────────
 FAO_LSIB_REGION = {
     "Africa": {
