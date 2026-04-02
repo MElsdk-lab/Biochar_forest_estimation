@@ -411,6 +411,11 @@ def build_country_lookup(regions):
 country_thresholds = [10, 20, 30, 40, 50]
 state_thresholds   = [10, 20, 30, 40, 50]
 
+# ── Tree cover bins────────────────────────────────────────────────────────────
+
+forest_bins = list(range(10, 110, 10))
+
+
 # ── 7. FAO FRA 2025 Regional Detailed Tables ─────────────────────────────────
 # Source: FAO FRA 2025 regional summary tables 
 #Link: https://openknowledge.fao.org/server/api/core/bitstreams/2dee6e93-1988-4659-aa89-30dd20b43b15/content/FRA-2025/annexes.html
