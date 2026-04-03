@@ -547,6 +547,7 @@ def copy_gee_exports_to_repo(filenames, gee_folder, data_folder):
 
 
 def compute_forest_type_composition(df, excluded_bins=None):
+    import pandas as pd
     """
     Compute weighted mean canopy cover and std per GLC forest type.
 
