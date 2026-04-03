@@ -1,10 +1,46 @@
-bin,estimation,country
-Low (< 4 Mha),mixed,28
-Low (< 4 Mha),overestimated,44
-Low (< 4 Mha),underestimated,42
-Medium (4-37 Mha),mixed,16
-Medium (4-37 Mha),overestimated,17
-Medium (4-37 Mha),underestimated,25
-High (> 37 Mha),mixed,10
-High (> 37 Mha),overestimated,5
-High (> 37 Mha),underestimated,5
+bin,threshold,estimation,country
+Low (< 4 Mha),10,mixed,0
+Low (< 4 Mha),10,overestimated,44
+Low (< 4 Mha),10,underestimated,70
+Low (< 4 Mha),20,mixed,0
+Low (< 4 Mha),20,overestimated,51
+Low (< 4 Mha),20,underestimated,63
+Low (< 4 Mha),30,mixed,0
+Low (< 4 Mha),30,overestimated,58
+Low (< 4 Mha),30,underestimated,56
+Low (< 4 Mha),40,mixed,0
+Low (< 4 Mha),40,overestimated,64
+Low (< 4 Mha),40,underestimated,50
+Low (< 4 Mha),50,mixed,0
+Low (< 4 Mha),50,overestimated,72
+Low (< 4 Mha),50,underestimated,42
+Medium (4-37 Mha),10,mixed,0
+Medium (4-37 Mha),10,overestimated,17
+Medium (4-37 Mha),10,underestimated,41
+Medium (4-37 Mha),20,mixed,0
+Medium (4-37 Mha),20,overestimated,25
+Medium (4-37 Mha),20,underestimated,33
+Medium (4-37 Mha),30,mixed,0
+Medium (4-37 Mha),30,overestimated,27
+Medium (4-37 Mha),30,underestimated,31
+Medium (4-37 Mha),40,mixed,0
+Medium (4-37 Mha),40,overestimated,29
+Medium (4-37 Mha),40,underestimated,29
+Medium (4-37 Mha),50,mixed,0
+Medium (4-37 Mha),50,overestimated,33
+Medium (4-37 Mha),50,underestimated,25
+High (> 37 Mha),10,mixed,0
+High (> 37 Mha),10,overestimated,5
+High (> 37 Mha),10,underestimated,15
+High (> 37 Mha),20,mixed,0
+High (> 37 Mha),20,overestimated,10
+High (> 37 Mha),20,underestimated,10
+High (> 37 Mha),30,mixed,0
+High (> 37 Mha),30,overestimated,12
+High (> 37 Mha),30,underestimated,8
+High (> 37 Mha),40,mixed,0
+High (> 37 Mha),40,overestimated,13
+High (> 37 Mha),40,underestimated,7
+High (> 37 Mha),50,mixed,0
+High (> 37 Mha),50,overestimated,15
+High (> 37 Mha),50,underestimated,5
