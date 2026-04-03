@@ -444,3 +444,71 @@ def export_forest_area_bin_type_all_states(selected_states, bins, forest_classif
     state_task.start()
     print(f'✅ Single export task submitted: {filename}')
     return state_task
+
+
+
+# ── SECTION 8: Forest Area by Bin and GLC Forest Type — Countries ─────────────
+
+def get_forest_area_bin_type_country(country_feature, bins, forest_classification):
+    """
+    For one country feature, compute forest area (Mha) per GLC forest type
+    for each canopy cover bin — both masks applied simultaneously at pixel level.
+    Returns a GEE FeatureCollection — one Feature with one column per (class x bin).
+    """
+    class_images = []
+    for fc in forest_classification:
+        for i in range(len(bins) - 1):
+            forest_mask_bin = (
+                treecover2000_masked.gte(bins[i])
+                .And(treecover2000_masked.lt(bins[i+1]))
+                .selfMask()
+                .updateMask(datamask.eq(1))
+            )
+            class_mask_bin = glc_2000.eq(fc['code']).And(forest_mask_bin)
+            class_area_bin = class_mask_bin.multiply(ee.Image.pixelArea().divide(1e10)).rename(f"{fc['name']} - {bins[i]}-{bins[i+1]}")
+            class_images.append(class_area_bin)
+
+    multi_band_image = ee.Image.cat(class_images)
+
+    region_area = multi_band_image.reduceRegions(
+        collection=ee.FeatureCollection([country_feature]),
+        reducer=ee.Reducer.sum(),
+        scale=30
+    )
+    return region_area
+
+
+def export_forest_area_bin_type_all_countries(selected_regions, bins, forest_classification, region_label='all_countries'):
+    """
+    Loop over all countries, build one combined FeatureCollection,
+    and submit a single export task to Drive.
+    Output columns: country_na + one column per (GLC forest class x bin)
+    """
+    all_countries = get_all_countries(selected_regions)
+    lsib_fao = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017') \
+                  .filter(ee.Filter.inList('country_na', all_countries))
+    country_list = lsib_fao.toList(lsib_fao.size())
+    n = lsib_fao.size().getInfo()
+
+    combined = ee.FeatureCollection([])
+    for i in range(n):
+        country_feature = ee.Feature(country_list.get(i))
+        result = get_forest_area_bin_type_country(country_feature, bins, forest_classification)
+        combined = combined.merge(result)
+
+    selectors = ['country_na'] + [f"{fc['name']} - {bins[i]}-{bins[i+1]}"
+                                  for fc in forest_classification
+                                  for i in range(len(bins) - 1)]
+    filename = f'forest_area_bin_type_{region_label}'
+
+    country_task = ee.batch.Export.table.toDrive(
+        collection=combined,
+        description=filename,
+        folder='GEE_exports',
+        fileNamePrefix=filename,
+        fileFormat='CSV',
+        selectors=selectors
+    )
+    country_task.start()
+    print(f'✅ Single export task submitted: {filename}')
+    return country_task
