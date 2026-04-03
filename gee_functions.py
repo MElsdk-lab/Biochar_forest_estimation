@@ -514,17 +514,33 @@ def export_forest_area_bin_type_all_countries(selected_regions, bins, forest_cla
     return country_task
 
 
-import shutil
-import os
-
 def copy_gee_exports_to_repo(filenames, gee_folder, data_folder):
     """
-    Copy a list of GEE export CSV files from Drive to the GitHub repo data folder.
-    filenames: list of filenames without path e.g. ['forest_area_bin_type_all_states.csv']
+    Copy GEE export CSV files from Drive to the GitHub repo data folder.
+    Automatically renames standard GEE columns to clean names.
     """
+    import shutil
+    import os
+    import pandas as pd
+
     os.makedirs(data_folder, exist_ok=True)
+
+    column_rename = {
+        'NAME':       'state',
+        'country_na': 'country',
+        'sum':        'area_Mha',
+    }
+
     for f in filenames:
         src = gee_folder + f
         dst = data_folder + f
-        shutil.copy(src, dst)
-        print(f'✅ Copied {f}')
+
+        df = pd.read_csv(src)
+
+        # only rename columns that actually exist in this file
+        rename_map = {k: v for k, v in column_rename.items() if k in df.columns}
+        if rename_map:
+            df.rename(columns=rename_map, inplace=True)
+
+        df.to_csv(dst, index=False)
+        print(f'✅ Copied and cleaned {f}')
