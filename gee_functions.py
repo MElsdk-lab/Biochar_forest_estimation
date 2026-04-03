@@ -544,3 +544,75 @@ def copy_gee_exports_to_repo(filenames, gee_folder, data_folder):
 
         df.to_csv(dst, index=False)
         print(f'✅ Copied and cleaned {f}')
+
+
+def compute_forest_type_composition(df, excluded_bins=None):
+    """
+    Compute weighted mean canopy cover and std per GLC forest type.
+
+    Input:
+        df: wide dataframe loaded from 'forest_area_bin_type_{region_label}.csv'
+            produced by the following pipeline:
+                1. export_forest_area_bin_type_all_states() — GEE export
+                2. copy_gee_exports_to_repo() — copy from Drive to repo
+
+    Parameters:
+        df:             wide dataframe (state | glc_class - bin columns)
+        excluded_bins:  list of bins to exclude below the justified threshold.
+                        threshold is region-specific — determine it by comparing
+                        Hansen forest area against FAO statistics per region.
+                        Examples:
+                            US states:    excluded_bins=['10-20']          (threshold = 20%)
+                            Global:       excluded_bins=['10-20', '20-30'] (threshold = 30%)
+                            Tropical:     excluded_bins=['10-20', '20-30', '30-40'] (threshold = 40%)
+
+    Returns:
+        forest_type_stats:  one row per GLC class with
+                            weighted_mean_canopy, weighted_std_canopy, total_area_Mha
+        composition:        full distribution — glc_class | bin | area_Mha | bin_mid
+    """
+    if excluded_bins is None:
+        raise ValueError(
+            "excluded_bins must be specified — threshold is region-specific. "
+            "Example: excluded_bins=['10-20'] for US (20%), ['10-20','20-30'] for global (30%)"
+        )
+
+    # Step 1 — melt to long format
+    df_long = df.melt(id_vars='state', var_name='glc_bin', value_name='area_Mha')
+
+    # Step 2 — split glc_bin into glc_class and bin
+    df_long[['glc_class', 'bin']] = df_long['glc_bin'].str.split(' - ', expand=True)
+    df_long = df_long.drop(columns='glc_bin')
+
+    # Step 3 — filter excluded bins
+    df_filtered = df_long[~df_long['bin'].isin(excluded_bins)]
+
+    # Step 4 — aggregate across states
+    composition = df_filtered.groupby(['glc_class', 'bin'])['area_Mha'].sum().reset_index()
+
+    # Step 5 — bin midpoint
+    composition['bin_mid'] = composition['bin'].apply(
+        lambda x: (int(x.split('-')[0]) + int(x.split('-')[1])) / 2
+    )
+
+    # Step 6 — weighted mean and std per forest type
+    def weighted_mean(group):
+        return (group['bin_mid'] * group['area_Mha']).sum() / group['area_Mha'].sum()
+
+    def weighted_std(group):
+        mean = weighted_mean(group)
+        variance = ((group['bin_mid'] - mean) ** 2 * group['area_Mha']).sum() / group['area_Mha'].sum()
+        return variance ** 0.5
+
+    forest_type_stats = composition.groupby('glc_class').apply(
+        lambda g: pd.Series({
+            'weighted_mean_canopy': weighted_mean(g),
+            'weighted_std_canopy':  weighted_std(g),
+            'total_area_Mha':       g['area_Mha'].sum()
+        })
+    ).reset_index()
+
+    # Drop classes with no data
+    forest_type_stats = forest_type_stats.dropna(subset=['weighted_mean_canopy'])
+
+    return forest_type_stats, composition
