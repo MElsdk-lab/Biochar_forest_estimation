@@ -514,6 +514,59 @@ def export_forest_area_bin_type_all_countries(selected_regions, bins, forest_cla
     return country_task
 
 
+
+# ── SECTION 9: Total GLC Forest Area — US States ──────────────────────────────
+
+def get_glc_total_forest_area_state(state_feature):
+    """
+    For one state feature, compute total GLC forest area (Mha)
+    summing all forest classes 51-92.
+    Returns a GEE FeatureCollection — one Feature with total area.
+    """
+    area_image = glc_2000_forest.multiply(ee.Image.pixelArea().divide(1e10))
+
+    region_area = area_image.reduceRegions(
+        collection=ee.FeatureCollection([state_feature]),
+        reducer=ee.Reducer.sum(),
+        scale=30
+    )
+    return region_area
+
+
+def export_glc_total_forest_area_all_states(selected_states, region_label='all_states'):
+    """
+    Loop over all states, build one combined FeatureCollection,
+    and submit a single export task to Drive.
+    Output columns: NAME, sum (total GLC forest area in Mha)
+    """
+    tiger_states = ee.FeatureCollection('TIGER/2018/States') \
+                     .filter(ee.Filter.inList('NAME', selected_states))
+    state_list = tiger_states.toList(tiger_states.size())
+    n = tiger_states.size().getInfo()
+
+    combined = ee.FeatureCollection([])
+    for i in range(n):
+        state_feature = ee.Feature(state_list.get(i))
+        result = get_glc_total_forest_area_state(state_feature)
+        combined = combined.merge(result)
+
+    filename = f'glc_total_forest_area_{region_label}'
+
+    task = ee.batch.Export.table.toDrive(
+        collection=combined,
+        description=filename,
+        folder='GEE_exports',
+        fileNamePrefix=filename,
+        fileFormat='CSV',
+        selectors=['NAME', 'sum']
+    )
+    task.start()
+    print(f'✅ Single export task submitted: {filename}')
+    return task
+
+# ── SECTION 10: GEE export CSV files from Drive to the GitHub  ──────────────────────────────
+
+
 def copy_gee_exports_to_repo(filenames, gee_folder, data_folder):
     """
     Copy GEE export CSV files from Drive to the GitHub repo data folder.
@@ -545,6 +598,7 @@ def copy_gee_exports_to_repo(filenames, gee_folder, data_folder):
         df.to_csv(dst, index=False)
         print(f'✅ Copied and cleaned {f}')
 
+# ── SECTION 11: Compute weighted mean canopy cover and std per GLC forest type  ──────────────────────────────
 
 def compute_forest_type_composition(df, excluded_bins=None):
     import pandas as pd
