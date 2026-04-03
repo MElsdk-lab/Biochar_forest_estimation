@@ -17,6 +17,8 @@
 #       export_forest_cover_area_type_all_countries,
 #       get_forest_cover_area_type_state,
 #       export_forest_cover_area_type_all_states,
+#       get_forest_area_bin_type_state,
+#       export_forest_area_bin_type_all_states,
 #   )
 # =======================================================
 
@@ -28,7 +30,6 @@ from data_config import get_all_countries
 #   - treecover2000_masked
 #   - datamask
 #   - glc_2000
-
 
 
 # ── SECTION 1: Forest Area by Threshold — Countries ───────────────────────────
@@ -56,11 +57,11 @@ def prepare_forest_collection(selected_regions, threshold):
     return region_areas
 
 
-def export_forest_area(selected_regions, thresholds):
+def export_forest_area(selected_regions, thresholds, region_label='all_countries'):
     """
     Merge all thresholds into one FeatureCollection and
     submit a single export task to Google Drive.
-    Output columns: country, threshold, area_Mha
+    Output columns: country_na, threshold, sum
     """
     combined = ee.FeatureCollection([])
 
@@ -68,16 +69,17 @@ def export_forest_area(selected_regions, thresholds):
         result = prepare_forest_collection(selected_regions, threshold)
         combined = combined.merge(result)
 
+    filename = f'forest_area_thresholds_{region_label}'
     task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='forest_area_all_thresholds',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='forest_area_all_thresholds',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=['country_na', 'threshold', 'sum']
     )
     task.start()
-    print('✅ Single export task submitted: forest_area_all_thresholds')
+    print(f'✅ Single export task submitted: {filename}')
     return task
 
 
@@ -105,11 +107,11 @@ def prepare_states_forest_collection(selected_states, threshold):
     return states_areas
 
 
-def export_states_forest_area(selected_states, thresholds):
+def export_states_forest_area(selected_states, thresholds, region_label='all_states'):
     """
     Merge all thresholds into one FeatureCollection and
     submit a single export task to Google Drive.
-    Output columns: state, threshold, area_Mha
+    Output columns: NAME, threshold, sum
     """
     combined = ee.FeatureCollection([])
 
@@ -117,16 +119,17 @@ def export_states_forest_area(selected_states, thresholds):
         result = prepare_states_forest_collection(selected_states, threshold)
         combined = combined.merge(result)
 
+    filename = f'states_forest_area_thresholds_{region_label}'
     task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='states_forest_area_all_thresholds',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='states_forest_area_all_thresholds',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=['NAME', 'threshold', 'sum']
     )
     task.start()
-    print('✅ Single export task submitted: states_forest_area_all_thresholds')
+    print(f'✅ Single export task submitted: {filename}')
     return task
 
 
@@ -163,7 +166,7 @@ def get_forest_cover_bins_one_country(country_feature, bins):
     return all_features
 
 
-def export_forest_cover_bins_all_countries(selected_regions, bins):
+def export_forest_cover_bins_all_countries(selected_regions, bins, region_label='all_countries'):
     """
     Loop over all countries, build one combined FeatureCollection,
     and submit a single export task to Drive.
@@ -184,16 +187,17 @@ def export_forest_cover_bins_all_countries(selected_regions, bins):
         result = get_forest_cover_bins_one_country(country_feature, bins)
         combined = combined.merge(result)
 
+    filename = f'forest_cover_bins_{region_label}'
     task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='forest_cover_bins_all_countries',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='forest_cover_bins_all_countries',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=['country_na', 'bin', 'sum']
     )
     task.start()
-    print('✅ Single export task submitted: forest_cover_bins_all_countries')
+    print(f'✅ Single export task submitted: {filename}')
     return task
 
 
@@ -230,7 +234,7 @@ def get_forest_cover_bins_one_state(state_feature, bins):
     return all_features
 
 
-def export_forest_cover_bins_all_states(selected_states, bins):
+def export_forest_cover_bins_all_states(selected_states, bins, region_label='all_states'):
     """
     Loop over all states, build one combined FeatureCollection,
     and submit a single export task to Drive.
@@ -249,16 +253,17 @@ def export_forest_cover_bins_all_states(selected_states, bins):
         result = get_forest_cover_bins_one_state(state_feature, bins)
         combined = combined.merge(result)
 
+    filename = f'forest_cover_bins_{region_label}'
     task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='forest_cover_bins_all_states',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='forest_cover_bins_all_states',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=['NAME', 'bin', 'sum']
     )
     task.start()
-    print('✅ Single export task submitted: forest_cover_bins_all_states')
+    print(f'✅ Single export task submitted: {filename}')
     return task
 
 
@@ -285,7 +290,7 @@ def get_forest_cover_area_type_country(country_feature, forest_classification):
     return region_area
 
 
-def export_forest_cover_area_type_all_countries(selected_regions, forest_classification):
+def export_forest_cover_area_type_all_countries(selected_regions, forest_classification, region_label='all_countries'):
     """
     Loop over all countries, build one combined FeatureCollection,
     and submit a single export task to Drive.
@@ -304,17 +309,18 @@ def export_forest_cover_area_type_all_countries(selected_regions, forest_classif
         combined = combined.merge(result)
 
     selectors = ['country_na'] + [fc['name'] for fc in forest_classification]
+    filename = f'forest_cover_area_type_{region_label}'
 
     country_task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='forest_cover_area_type_all_countries',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='forest_cover_area_type_all_countries',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=selectors
     )
     country_task.start()
-    print('✅ Single export task submitted: forest_cover_area_type_all_countries')
+    print(f'✅ Single export task submitted: {filename}')
     return country_task
 
 
@@ -341,7 +347,7 @@ def get_forest_cover_area_type_state(state_feature, forest_classification):
     return region_area
 
 
-def export_forest_cover_area_type_all_states(selected_states, forest_classification):
+def export_forest_cover_area_type_all_states(selected_states, forest_classification, region_label='all_states'):
     """
     Loop over all states, build one combined FeatureCollection,
     and submit a single export task to Drive.
@@ -359,38 +365,38 @@ def export_forest_cover_area_type_all_states(selected_states, forest_classificat
         combined = combined.merge(result)
 
     selectors = ['NAME'] + [fc['name'] for fc in forest_classification]
+    filename = f'forest_cover_area_type_{region_label}'
 
     state_task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='forest_cover_area_type_all_states',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='forest_cover_area_type_all_states',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=selectors
     )
     state_task.start()
-    print('✅ Single export task submitted: forest_cover_area_type_all_states')
+    print(f'✅ Single export task submitted: {filename}')
     return state_task
 
 
-# ── SECTION 7: Forest Area for each bin and for each GLC Forest Type — US States ─────────────────────
+# ── SECTION 7: Forest Area by Bin and GLC Forest Type — US States ─────────────
 
 def get_forest_area_bin_type_state(state_feature, bins, forest_classification):
     """
-    For one state feature, compute forest area (Mha) per GLC forest type for a each for cover range .
-    Returns a GEE FeatureCollection — one Feature with one column per class.
+    For one state feature, compute forest area (Mha) per GLC forest type
+    for each canopy cover bin — both masks applied simultaneously at pixel level.
+    Returns a GEE FeatureCollection — one Feature with one column per (class x bin).
     """
     class_images = []
     for fc in forest_classification:
         for i in range(len(bins) - 1):
-            
-            bin_label = f'{bins[i]}-{bins[i+1]}'
             forest_mask_bin = (
-            treecover2000_masked.gte(bins[i])
-            .And(treecover2000_masked.lt(bins[i+1]))
-            .selfMask()
-            .updateMask(datamask.eq(1))
-                )
+                treecover2000_masked.gte(bins[i])
+                .And(treecover2000_masked.lt(bins[i+1]))
+                .selfMask()
+                .updateMask(datamask.eq(1))
+            )
             class_mask_bin = glc_2000.eq(fc['code']).And(forest_mask_bin)
             class_area_bin = class_mask_bin.multiply(ee.Image.pixelArea().divide(1e10)).rename(f"{fc['name']} - {bins[i]}-{bins[i+1]}")
             class_images.append(class_area_bin)
@@ -404,13 +410,13 @@ def get_forest_area_bin_type_state(state_feature, bins, forest_classification):
     )
     return region_area
 
-def export_forest_area_bin_type_all_states(selected_states, bins, forest_classification):
+
+def export_forest_area_bin_type_all_states(selected_states, bins, forest_classification, region_label='all_states'):
     """
     Loop over all states, build one combined FeatureCollection,
     and submit a single export task to Drive.
-    Output columns: NAME + one column per (GLC forest class * bin)
-    """ 
-    
+    Output columns: NAME + one column per (GLC forest class x bin)
+    """
     tiger_states = ee.FeatureCollection('TIGER/2018/States') \
                      .filter(ee.Filter.inList('NAME', selected_states))
     state_list = tiger_states.toList(tiger_states.size())
@@ -422,20 +428,19 @@ def export_forest_area_bin_type_all_states(selected_states, bins, forest_classif
         result = get_forest_area_bin_type_state(state_feature, bins, forest_classification)
         combined = combined.merge(result)
 
-    selectors = ['NAME'] + [f"{fc['name']} - {bins[i]}-{bins[i+1]}" 
-             for fc in forest_classification 
-             for i in range(len(bins) - 1)]
+    selectors = ['NAME'] + [f"{fc['name']} - {bins[i]}-{bins[i+1]}"
+                            for fc in forest_classification
+                            for i in range(len(bins) - 1)]
+    filename = f'forest_area_bin_type_{region_label}'
 
     state_task = ee.batch.Export.table.toDrive(
         collection=combined,
-        description='forest_area_bin_type_all_states',
+        description=filename,
         folder='GEE_exports',
-        fileNamePrefix='forest_area_bin_type_all_states',
+        fileNamePrefix=filename,
         fileFormat='CSV',
         selectors=selectors
     )
     state_task.start()
-    print('✅ Single export task submitted: forest_area_bin_type_all_states')
+    print(f'✅ Single export task submitted: {filename}')
     return state_task
-
-        
