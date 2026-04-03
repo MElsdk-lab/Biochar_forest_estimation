@@ -512,3 +512,19 @@ def export_forest_area_bin_type_all_countries(selected_regions, bins, forest_cla
     country_task.start()
     print(f'✅ Single export task submitted: {filename}')
     return country_task
+
+
+import shutil
+import os
+
+def copy_gee_exports_to_repo(filenames, gee_folder, data_folder):
+    """
+    Copy a list of GEE export CSV files from Drive to the GitHub repo data folder.
+    filenames: list of filenames without path e.g. ['forest_area_bin_type_all_states.csv']
+    """
+    os.makedirs(data_folder, exist_ok=True)
+    for f in filenames:
+        src = gee_folder + f
+        dst = data_folder + f
+        shutil.copy(src, dst)
+        print(f'✅ Copied {f}')
