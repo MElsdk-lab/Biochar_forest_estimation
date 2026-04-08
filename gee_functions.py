@@ -380,7 +380,7 @@ def export_forest_cover_area_type_all_states(selected_states, forest_classificat
     return state_task
 
 
-# ── SECTION 7: Forest Area by Bin and GLC Forest Type — US States ─────────────
+# ── SECTION 7A: Forest Area by Bin and GLC Forest Type with Hansen tree cover — US States  2000 ─────────────
 
 def get_forest_area_bin_type_state(state_feature, bins, forest_classification):
     """
@@ -445,6 +445,143 @@ def export_forest_area_bin_type_all_states(selected_states, bins, forest_classif
     print(f'✅ Single export task submitted: {filename}')
     return state_task
 
+# ── SECTION 7B: Forest Area by Bin and GLC Forest Type with Treemap — US States 2016 ─────────────
+
+def get_forest_area_bin_type_state_treemap_2016(state_feature, bins, forest_classification):
+
+    GLC_FSC30D_annual = ee.ImageCollection('projects/sat-io/open-datasets/GLC-FCS30D/annual')
+    glc_2016          = GLC_FSC30D_annual.mosaic().select('b17')  # b17 = year 2016
+
+    tree_map          = ee.ImageCollection('USFS/GTAC/TreeMap/v2016') \
+                          .filterDate('2016', '2017').first()
+    canopypct_treemap = tree_map.select('CANOPYPCT')
+
+    class_images = []
+    for fc in forest_classification:
+        for i in range(len(bins) - 1):
+            forest_mask_treemap_bin = (
+                canopypct_treemap.gte(bins[i])
+                .And(canopypct_treemap.lt(bins[i+1]))
+                .selfMask()
+            )
+            class_mask_bin  = glc_2016.eq(fc['code']).And(forest_mask_treemap_bin)
+            class_area_bin  = class_mask_bin.multiply(ee.Image.pixelArea().divide(1e10)) \
+                                .rename(f"{fc['name']} - {bins[i]}-{bins[i+1]}")
+            class_images.append(class_area_bin)
+
+    multi_band_image = ee.Image.cat(class_images)
+
+    region_area = multi_band_image.reduceRegions(
+        collection=ee.FeatureCollection([state_feature]),
+        reducer=ee.Reducer.sum(),
+        scale=30
+    )
+    return region_area
+
+# ── SECTION 7C: Forest Area by Bin and GLC Forest Type with Treemap — US States 2020 ─────────────
+
+def get_forest_area_bin_type_state_treemap_2020(state_feature, bins, forest_classification):
+
+    GLC_FSC30D_annual = ee.ImageCollection('projects/sat-io/open-datasets/GLC-FCS30D/annual')
+    glc_2020          = GLC_FSC30D_annual.mosaic().select('b21')  # b21 = year 2020
+
+    tree_map          = ee.ImageCollection('USFS/GTAC/TreeMap/v2020') \
+                          .filterDate('2020', '2021').first()
+    canopypct_treemap = tree_map.select('CANOPYPCT')
+
+    class_images = []
+    for fc in forest_classification:
+        for i in range(len(bins) - 1):
+            forest_mask_treemap_bin = (
+                canopypct_treemap.gte(bins[i])
+                .And(canopypct_treemap.lt(bins[i+1]))
+                .selfMask()
+            )
+            class_mask_bin = glc_2020.eq(fc['code']).And(forest_mask_treemap_bin)
+            class_area_bin = class_mask_bin.multiply(ee.Image.pixelArea().divide(1e10)) \
+                               .rename(f"{fc['name']} - {bins[i]}-{bins[i+1]}")
+            class_images.append(class_area_bin)
+
+    multi_band_image = ee.Image.cat(class_images)
+
+    region_area = multi_band_image.reduceRegions(
+        collection=ee.FeatureCollection([state_feature]),
+        reducer=ee.Reducer.sum(),
+        scale=30
+    )
+    return region_area
+    
+# ── SECTION 7D: Forest Area by Bin and GLC Forest Type with Treemap — US States 2022 ─────────────
+
+def get_forest_area_bin_type_state_treemap_2022(state_feature, bins, forest_classification):
+
+    GLC_FSC30D_annual = ee.ImageCollection('projects/sat-io/open-datasets/GLC-FCS30D/annual')
+    glc_2022          = GLC_FSC30D_annual.mosaic().select('b23')  # b23 = year 2022
+
+    tree_map          = ee.ImageCollection('USFS/GTAC/TreeMap/v2022') \
+                          .filterDate('2022', '2023').first()
+    canopypct_treemap = tree_map.select('CANOPYPCT')
+
+    class_images = []
+    for fc in forest_classification:
+        for i in range(len(bins) - 1):
+            forest_mask_treemap_bin = (
+                canopypct_treemap.gte(bins[i])
+                .And(canopypct_treemap.lt(bins[i+1]))
+                .selfMask()
+            )
+            class_mask_bin = glc_2022.eq(fc['code']).And(forest_mask_treemap_bin)
+            class_area_bin = class_mask_bin.multiply(ee.Image.pixelArea().divide(1e10)) \
+                               .rename(f"{fc['name']} - {bins[i]}-{bins[i+1]}")
+            class_images.append(class_area_bin)
+
+    multi_band_image = ee.Image.cat(class_images)
+
+    region_area = multi_band_image.reduceRegions(
+        collection=ee.FeatureCollection([state_feature]),
+        reducer=ee.Reducer.sum(),
+        scale=30
+    )
+    return region_area
+
+# ── SECTION 7E: EXPORT the calcatuon from sections 7B, 7C, 7D ---------- US States 2022 ─────────────
+
+def export_forest_area_bin_type_all_states_treemap(
+    selected_states, 
+    bins, 
+    forest_classification, 
+    get_forest_area_bin_type_state_treemap_year,  # ← no default — must come first
+    region_label='all_states'                      # ← has default — comes last
+):
+    tiger_states = ee.FeatureCollection('TIGER/2018/States') \
+                     .filter(ee.Filter.inList('NAME', selected_states))
+    state_list = tiger_states.toList(tiger_states.size())
+    n          = tiger_states.size().getInfo()
+
+    combined = ee.FeatureCollection([])
+    for i in range(n):
+        state_feature = ee.Feature(state_list.get(i))
+        result        = get_forest_area_bin_type_state_treemap_year(
+                            state_feature, bins, forest_classification
+                        )
+        combined = combined.merge(result)
+
+    selectors = ['NAME'] + [f"{fc['name']} - {bins[i]}-{bins[i+1]}"
+                            for fc in forest_classification
+                            for i in range(len(bins) - 1)]
+    filename  = f'forest_area_bin_type_treemap_{region_label}'
+
+    state_task = ee.batch.Export.table.toDrive(
+        collection=combined,
+        description=filename,
+        folder='GEE_exports',
+        fileNamePrefix=filename,
+        fileFormat='CSV',
+        selectors=selectors
+    )
+    state_task.start()
+    print(f'✅ Single export task submitted: {filename}')
+    return state_task
 
 
 # ── SECTION 8: Forest Area by Bin and GLC Forest Type — Countries ─────────────
