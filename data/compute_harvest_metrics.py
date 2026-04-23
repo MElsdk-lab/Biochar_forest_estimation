@@ -111,7 +111,7 @@ def compute_metrics_export(mask,
     stats = combined.reduceRegion(
         reducer=ee.Reducer.sum().combine(
             ee.Reducer.mean(),
-            sharedInputs=False
+            sharedInputs=True
         ),
         geometry=region_geom,
         scale=30,
