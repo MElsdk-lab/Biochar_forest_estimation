@@ -112,10 +112,11 @@ def compute_metrics_export(mask,
         reducer=ee.Reducer.sum().combine(
             ee.Reducer.mean(),
             sharedInputs=True
-        ),
+        ), 
         geometry=region_geom,
         scale=30,
-        maxPixels=1e13
+        maxPixels=1e13,
+        tileScale=16
     )
 
     # ── Build feature properties ──
