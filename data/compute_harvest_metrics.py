@@ -18,13 +18,7 @@ import ee
 
 def compute_metrics_export(mask,
 
-#
-
-m²
-
-→
-
-ha
+# m²→ ha
 
 # ft³/acre → m³/ha # tons/acre → Mg/ha (ODT/ha) # branches + tops / total AGB
 
