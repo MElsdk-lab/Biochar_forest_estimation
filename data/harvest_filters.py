@@ -19,6 +19,7 @@ Verified results at scale=1000 (Oregon 2022):
   A6 binary:    2,246,501 ha   (matches inline manual test, A6 < A4) ✓
 
 Datasets injected at runtime:
+  hansen_2024            — Hansen GFC full image (with first_b30/40/50/70, last_b30/40/50/70)
   lossyear, drivers_class, logging_mask, lesiv_managed_30m, fml,
   GLC_FSC30D_annual, forest_union_mask
 ═══════════════════════════════════════════════════════════════════════════════
@@ -171,6 +172,117 @@ def harvest_filter_A6_L_not_H(state_geom, year, rotation_cycle):
         rotation_image.updateMask(managed_mask)
     )
     return managed_mask, annual_fraction
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# GROUP HT — HANSEN SPECTRAL THINNING (first→last delta, NEGATION → BINARY)
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# Uses Hansen GFC's pre-computed spectral composites (first_b30/40/50/70 and
+# last_b30/40/50/70) to detect thinning as canopy reduction NOT captured by
+# Hansen's lossyear (which detects only ≥50% canopy loss = clearcuts).
+#
+# Hansen Bands:
+#   first_b30 = RED  | first_b40 = NIR  | first_b50 = SWIR1 | first_b70 = SWIR2
+#   last_b30  = RED  | last_b40  = NIR  | last_b50  = SWIR1 | last_b70  = SWIR2
+#
+# Indices computed:
+#   NBR   = (NIR - SWIR2) / (NIR + SWIR2)            scaled to integer × 1000
+#   SWIR2 = SWIR2 band directly (rises after harvest) raw 0-255 scale
+#
+# Default thresholds:
+#   delta_NBR > 150     →  ~0.15 NBR drop  →  light thinning detection
+#   delta_SWIR2 > 25    →  significant SWIR2 rise → bare/dry biomass exposure
+#
+# All HT functions return BINARY masks (selfMask) at native 30m resolution.
+# Use mask_type='binary' in compute_metrics_export.
+# ════════════════════════════════════════════════════════════════════════════════
+
+
+def _compute_hansen_delta(index_name='NBR'):
+    """
+    Compute first→last delta from Hansen pre-built composites.
+    Larger delta = stronger spectral disturbance (greener → less green).
+    
+    For NBR: delta = first_NBR - last_NBR (positive = canopy lost)
+    For SWIR2: delta = last_b70 - first_b70 (positive = soil exposed)
+    """
+    if index_name == 'NBR':
+        # NBR = (NIR - SWIR2) / (NIR + SWIR2), scaled ×1000 for integer math
+        first_nir   = hansen_2024.select('first_b40').toFloat()
+        first_swir2 = hansen_2024.select('first_b70').toFloat()
+        last_nir    = hansen_2024.select('last_b40').toFloat()
+        last_swir2  = hansen_2024.select('last_b70').toFloat()
+        
+        first_nbr = (first_nir.subtract(first_swir2)
+                     .divide(first_nir.add(first_swir2).max(1))
+                     .multiply(1000))
+        last_nbr  = (last_nir.subtract(last_swir2)
+                     .divide(last_nir.add(last_swir2).max(1))
+                     .multiply(1000))
+        
+        # Drop = decrease in NBR
+        delta = first_nbr.subtract(last_nbr).rename('delta_NBR')
+        
+    elif index_name == 'SWIR2':
+        # SWIR2 rises with harvest (exposed soil)
+        first_swir2 = hansen_2024.select('first_b70').toFloat()
+        last_swir2  = hansen_2024.select('last_b70').toFloat()
+        delta = last_swir2.subtract(first_swir2).rename('delta_SWIR2')
+        
+    else:
+        raise ValueError(f"index_name must be 'NBR' or 'SWIR2', got '{index_name}'")
+    
+    return delta
+
+
+def harvest_filter_HT1_alone(state_geom,
+                              index_name='NBR',
+                              mag_threshold=150):
+    """
+    HT1 — Hansen spectral thinning, no Lesiv filter.
+    
+    delta(index) > threshold  AND  NOT lossyear>0  AND  forest_union
+    
+    Returns BINARY mask at 30m native resolution.
+    """
+    delta = _compute_hansen_delta(index_name)
+    hansen_any_loss = lossyear.gt(0)
+    
+    mask = (
+        delta.gt(mag_threshold)
+        .And(hansen_any_loss.unmask(0).Not())
+        .updateMask(forest_union_mask)
+        .selfMask()
+        .clip(state_geom)
+    )
+    return mask
+
+
+def harvest_filter_HT2_lesiv(state_geom,
+                              index_name='NBR',
+                              mag_threshold=150):
+    """
+    HT2 — Hansen spectral thinning × Lesiv managed forest.
+    
+    delta(index) > threshold  AND  NOT lossyear>0  
+                             AND  forest_union  AND  lesiv_managed
+    
+    Stricter than HT1 — only detects thinning in managed forest.
+    Returns BINARY mask at 30m native resolution.
+    """
+    delta = _compute_hansen_delta(index_name)
+    hansen_any_loss = lossyear.gt(0)
+    
+    mask = (
+        delta.gt(mag_threshold)
+        .And(hansen_any_loss.unmask(0).Not())
+        .And(lesiv_managed_30m)
+        .updateMask(forest_union_mask)
+        .selfMask()
+        .clip(state_geom)
+    )
+    return mask
 
 
 # ════════════════════════════════════════════════════════════════════════════════
