@@ -1,25 +1,22 @@
 """
 ═══════════════════════════════════════════════════════════════════════════════
- compute_metrics.py — BINARY MASK + SCALE PARAMETER VERSION
+ compute_metrics.py — FINAL DUAL-METHOD VERSION
 ═══════════════════════════════════════════════════════════════════════════════
 
-Computes area, volume, and residue metrics for BINARY masks (selfMask'd).
-The actual computation scale is controlled by `selected_scale` parameter.
+Handles BOTH mask types:
+  - mask_type='fractional': for A1, A2 (positive identity, fractional 1km)
+                            mask values are 0.0–1.0 (fraction of cell satisfying)
+                            Total = sum(fraction × pixelArea × intensity)
+  
+  - mask_type='binary': for A4, A5, A6, LT3 (selfMask'd binary)
+                        mask values are 1 (or null)
+                        Total = sum(pixelArea × intensity) for masked pixels
 
-When you pass scale=1000, GEE projects all images to 1km internally and
-computes per-1km-pixel values. Sims (1km native) stays unchanged. Hansen
-and Lesiv get aggregated cleanly.
-
-CRITICAL:
-  - Mask values are 1 (selfMask'd, no zeros)
-  - At scale=1000, each pixel = 100 ha
-  - Total area = sum of pixelArea for masked pixels
-  - Total volume = sum of (pixelArea_ha × volume_intensity_m³_ha)
-  - Total residue = sum of (pixelArea_ha × residue_intensity_ODT_ha)
+Both produce CORRECT total values at scale=1000.
 
 Conversions:
-  VOLCFNET_L (ft³/acre) × 0.0699 = m³/ha
-  DRYBIO_L (tons/acre) × 2.2417 = Mg/ha (= ODT/ha)
+  VOLCFNET_L (ft³/acre) × 0.0699  = m³/ha
+  DRYBIO_L (tons/acre) × 2.2417   = Mg/ha (= ODT/ha)
   Branch fraction: 0.275
 ═══════════════════════════════════════════════════════════════════════════════
 """
@@ -27,7 +24,6 @@ Conversions:
 import ee
 
 
-# Conversion constants
 PIXEL_AREA_CONVERSION       = 1e4
 VOL_FT3_PER_ACRE_TO_M3_HA   = 0.0699
 BIO_TONS_PER_ACRE_TO_MG_HA  = 2.2417
@@ -40,89 +36,76 @@ def compute_metrics_export(mask,
                            year,
                            filter_name,
                            selected_scale=1000,
+                           mask_type='binary',
                            treemap_vol=None,
                            treemap_bio=None,
                            annual_fraction=None,
                            extra_props=None,
                            export_folder='GEE_exports'):
     """
-    Compute total area, volume, and residue from a binary mask
-    at the specified scale and export as a single-row CSV.
+    Compute total area, volume, and residue and export as a single-row CSV.
     
     Parameters
     ----------
     mask : ee.Image
-        Binary mask (selfMask'd) at native resolution.
-    region_geom : ee.Geometry
-        Region to reduce over.
-    region_name : str
-        Name of the region.
-    year : int or str
-        Year or year range.
-    filter_name : str
-        Name of the filter.
-    selected_scale : int, default=1000
-        Scale in meters for reduceRegion.
-    treemap_vol : ee.Image or None
-        TreeMap volume band (VOLCFNET_L) in ft³/acre.
-    treemap_bio : ee.Image or None
-        TreeMap biomass band (DRYBIO_L) in tons/acre.
+        Either a fractional 0-1 mask (mask_type='fractional')
+        or a binary selfMask'd mask (mask_type='binary').
+    mask_type : {'fractional', 'binary'}
+        - 'fractional': A1, A2 (use ×fraction in computation)
+        - 'binary':     A4, A5, A6, LT3, B1a (selfMask handles it)
     annual_fraction : ee.Image or None
-        Annual fraction (1/rotation) for rotation-based tracks.
-    extra_props : dict or None
-        Additional metadata to add.
-    export_folder : str
-        Drive folder name.
-    
-    Returns
-    -------
-    ee.batch.Task
+        For rotation-based tracks (A4, A5, A6).
+    selected_scale : int, default=1000
+        Computation scale in meters.
     """
     
-    # Pixel area in hectares — depends on scale
-    # At scale=1000: 1 km × 1 km = 100 ha per pixel
-    pixel_area_ha = (
-        ee.Image.pixelArea()
-        .divide(PIXEL_AREA_CONVERSION)
-        .updateMask(mask)
-    )
+    if mask_type not in ('fractional', 'binary'):
+        raise ValueError(f"mask_type must be 'fractional' or 'binary', got '{mask_type}'")
     
-    # If rotation-based, multiply by annual_fraction to annualize
-    if annual_fraction is not None:
-        effective_area = pixel_area_ha.multiply(annual_fraction)
+    pixel_area_ha_full = ee.Image.pixelArea().divide(PIXEL_AREA_CONVERSION)
+    
+    # ── Build effective_area (the "weight" per cell) ──
+    if mask_type == 'fractional':
+        # Fractional: each cell holds fraction 0-1 of harvested area
+        # effective_area = fraction × pixel_area
+        effective_area = mask.multiply(pixel_area_ha_full)
+        # For mean intensity: use mask>0 to define the support
+        intensity_mask = mask.gt(0)
     else:
-        effective_area = pixel_area_ha
+        # Binary: selfMask'd, mask values are 1 where present
+        # effective_area = pixel_area, masked
+        effective_area = pixel_area_ha_full.updateMask(mask)
+        intensity_mask = mask
+    
+    # Apply rotation cycle if provided (rotation tracks: A3, A4, A5, A6)
+    if annual_fraction is not None:
+        effective_area = effective_area.multiply(annual_fraction)
     
     # ── Build band stack ──
     bands = [effective_area.rename('area_ha')]
 
     if treemap_vol is not None:
-        # Volume intensity in m³/ha
-        vol_intensity = treemap_vol.multiply(VOL_FT3_PER_ACRE_TO_M3_HA)
-        # Total volume per pixel = effective_area × intensity
+        vol_intensity = treemap_vol.multiply(VOL_FT3_PER_ACRE_TO_M3_HA)  # m³/ha
         vol_m3 = effective_area.multiply(vol_intensity)
         bands.append(vol_m3.rename('vol_m3'))
-        # Mean intensity for reporting
-        bands.append(vol_intensity.updateMask(mask).rename('vol_m3_ha'))
+        bands.append(vol_intensity.updateMask(intensity_mask).rename('vol_m3_ha'))
 
     if treemap_bio is not None:
-        # Residue intensity in ODT/ha
         residue_intensity = (
             treemap_bio
             .multiply(BIO_TONS_PER_ACRE_TO_MG_HA)
             .multiply(BRANCH_FRACTION)
         )
-        # Total residue per pixel
         residue_ODT = effective_area.multiply(residue_intensity)
         bands.append(residue_ODT.rename('residue_ODT'))
-        bands.append(residue_intensity.updateMask(mask).rename('residue_ODT_ha'))
+        bands.append(residue_intensity.updateMask(intensity_mask).rename('residue_ODT_ha'))
 
     # ── Stack bands ──
     combined = bands[0]
     for b in bands[1:]:
         combined = combined.addBands(b)
 
-    # ── Reduce: sum + mean in one pass ──
+    # ── Reduce: sum + mean ──
     stats = combined.reduceRegion(
         reducer=ee.Reducer.sum().combine(
             ee.Reducer.mean(),
@@ -140,12 +123,13 @@ def compute_metrics_export(mask,
         'year':        year,
         'filter_type': filter_name,
         'scale_m':     selected_scale,
+        'mask_type':   mask_type,
         'area_ha':     stats.get('area_ha_sum'),
     }
 
     if treemap_vol is not None:
-        feature_props['total_vol_m3']    = stats.get('vol_m3_sum')
-        feature_props['mean_vol_m3_ha']  = stats.get('vol_m3_ha_mean')
+        feature_props['total_vol_m3']   = stats.get('vol_m3_sum')
+        feature_props['mean_vol_m3_ha'] = stats.get('vol_m3_ha_mean')
 
     if treemap_bio is not None:
         feature_props['total_residue_ODT']   = stats.get('residue_ODT_sum')
@@ -168,6 +152,6 @@ def compute_metrics_export(mask,
     )
 
     task.start()
-    print(f'🚀 {filter_name} | {region_name} | {year} | scale={selected_scale}m')
+    print(f'🚀 {filter_name} | {region_name} | {year} | scale={selected_scale}m | type={mask_type}')
 
     return task
