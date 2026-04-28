@@ -34,6 +34,7 @@ def compute_metrics_export(mask,
                            region_name,
                            year,
                            filter_name,
+                           selected_scale,
                            treemap_vol=None,
                            treemap_bio=None,
                            annual_fraction=None,
@@ -114,7 +115,7 @@ def compute_metrics_export(mask,
             sharedInputs=True
         ), 
         geometry=region_geom,
-        scale=30,
+        scale=selected_scale,
         maxPixels=1e13,
         tileScale=16
     )
@@ -199,7 +200,7 @@ def batch_run_group_A(states_dict, years, treemap_by_year, rotation_cycle,
             mask = harvest_filters.harvest_filter_A1_H_S(region_geom, year)
             tasks.append(compute_metrics_export(
                 mask, region_geom, region_name, year,
-                'A1_H_S', t_vol, t_bio,
+                'A1_H_S', selected_scale, t_vol, t_bio,
                 export_folder=export_folder
             ))
 
@@ -207,7 +208,7 @@ def batch_run_group_A(states_dict, years, treemap_by_year, rotation_cycle,
             mask = harvest_filters.harvest_filter_A2_H_S_L(region_geom, year)
             tasks.append(compute_metrics_export(
                 mask, region_geom, region_name, year,
-                'A2_H_S_L', t_vol, t_bio,
+                'A2_H_S_L',selected_scale, t_vol, t_bio,
                 export_folder=export_folder
             ))
 
@@ -217,7 +218,7 @@ def batch_run_group_A(states_dict, years, treemap_by_year, rotation_cycle,
             )
             tasks.append(compute_metrics_export(
                 mask, region_geom, region_name, year,
-                'A3_L_rotation', t_vol, t_bio,
+                'A3_L_rotation',selected_scale, t_vol, t_bio,
                 annual_fraction=frac,
                 export_folder=export_folder
             ))
@@ -228,7 +229,7 @@ def batch_run_group_A(states_dict, years, treemap_by_year, rotation_cycle,
             )
             tasks.append(compute_metrics_export(
                 mask, region_geom, region_name, year,
-                'A4_L_not_S', t_vol, t_bio,
+                'A4_L_not_S', selected_scale, t_vol, t_bio,
                 annual_fraction=frac,
                 export_folder=export_folder
             ))
@@ -239,7 +240,7 @@ def batch_run_group_A(states_dict, years, treemap_by_year, rotation_cycle,
             )
             tasks.append(compute_metrics_export(
                 mask, region_geom, region_name, year,
-                'A5_L_H_pre2015', t_vol, t_bio,
+                'A5_L_H_pre2015', selected_scale, t_vol, t_bio,
                 annual_fraction=frac,
                 export_folder=export_folder
             ))
@@ -250,7 +251,7 @@ def batch_run_group_A(states_dict, years, treemap_by_year, rotation_cycle,
             )
             tasks.append(compute_metrics_export(
                 mask, region_geom, region_name, year,
-                'A6_L_not_H', t_vol, t_bio,
+                'A6_L_not_H', selected_scale, t_vol, t_bio,
                 annual_fraction=frac,
                 export_folder=export_folder
             ))
@@ -280,7 +281,7 @@ def batch_run_B1(states_dict, harvest_filters,
             for transition_year, entry in detections.items():
                 tasks.append(compute_metrics_export(
                     entry['mask'], region_geom, region_name,
-                    transition_year, 'B1a_GLC_thinning',
+                    transition_year, 'B1a_GLC_thinning',selected_scale,
                     treemap_vol, treemap_bio,
                     extra_props={'recovery_window_yrs': entry['recovery_window']},
                     export_folder=export_folder
@@ -288,7 +289,7 @@ def batch_run_B1(states_dict, harvest_filters,
             # Combined
             tasks.append(compute_metrics_export(
                 combined, region_geom, region_name,
-                'all_2002_2020', 'B1a_GLC_thinning_combined',
+                'all_2002_2020', 'B1a_GLC_thinning_combined', selected_scale,
                 treemap_vol, treemap_bio,
                 export_folder=export_folder
             ))
@@ -300,13 +301,13 @@ def batch_run_B1(states_dict, harvest_filters,
             for transition_year, mask in detections.items():
                 tasks.append(compute_metrics_export(
                     mask, region_geom, region_name,
-                    transition_year, 'B1_GLC_thinning',
+                    transition_year, 'B1_GLC_thinning',selected_scale,
                     treemap_vol, treemap_bio,
                     export_folder=export_folder
                 ))
             tasks.append(compute_metrics_export(
                 combined, region_geom, region_name,
-                'all_2002_2014', 'B1_GLC_thinning_combined',
+                'all_2002_2014', 'B1_GLC_thinning_combined', selected_scale,
                 treemap_vol, treemap_bio,
                 export_folder=export_folder
             ))
@@ -346,7 +347,7 @@ def batch_run_LT(states_dict, harvest_filters,
                     tasks.append(compute_metrics_export(
                         mask, region_geom, region_name,
                         f'all_{start_year}_{end_year}',
-                        full_name,
+                        full_name, selected_scale,
                         extra_props={
                             'index':         index_name,
                             'mag_threshold': mag,
