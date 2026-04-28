@@ -1,13 +1,19 @@
 """
 ═══════════════════════════════════════════════════════════════════════════════
- harvest_filters.py — 1km FRACTIONAL MASK VERSION
+ harvest_filters.py — BINARY MASK VERSION (with selfMask)
 ═══════════════════════════════════════════════════════════════════════════════
 
-All harvest filter functions output FRACTIONAL masks at 1km resolution.
-Each 1km cell value = fraction (0.0 to 1.0) of underlying area satisfying the filter.
+All harvest filter functions output BINARY masks (selfMask'd) at native resolution.
+The actual scale of computation is controlled by `selected_scale` parameter
+in `compute_metrics_export()`.
 
-This eliminates Sims resampling artifacts that occurred at scale=30 and provides
-mathematically consistent results: A6 ⊆ A4, A6 ⊆ A2, etc.
+This avoids the fractional aggregation bug with NEGATION operations (NOT Hansen)
+that caused A6 to be over-estimated when using reduceResolution(mean).
+
+Recommended usage:
+  - For Sims-involving tracks (A1, A2, A4, LT2, LT3): selected_scale=1000
+    (avoids 1100x Sims fattening artifact at 30m)
+  - For other tracks: selected_scale=100 (Lesiv native) or 30 (Hansen native)
 
 Approaches:
   A1   Hansen × Sims                              (upper bound)
@@ -23,7 +29,7 @@ Approaches:
   LT3  LandTrendr × NOT (Sims any class)          (pure thinning signal)
 
 Datasets injected at runtime:
-  lossyear               — Hansen GFC lossyear band (0–24)
+  lossyear               — Hansen GFC lossyear band
   drivers_class          — Sims et al. 2025 class band
   logging_mask           — Sims class 4 binary
   lesiv_managed_30m      — Lesiv managed forest 20/31/32 binary
@@ -37,38 +43,6 @@ import ee
 from ltgee import LandTrendr, LtCollection
 
 
-# Target output resolution
-TARGET_SCALE = 1000   # 1 km
-DEFAULT_CRS  = 'EPSG:4326'
-
-
-# ════════════════════════════════════════════════════════════════════════════════
-# CORE HELPER — Convert binary mask to fractional 1km mask
-# ════════════════════════════════════════════════════════════════════════════════
-
-def _to_fractional_1km(binary_mask, region_geom):
-    """
-    Convert a binary mask at native resolution to a fractional 1km mask.
-    Each 1km cell value = fraction (0.0 to 1.0) of underlying pixels satisfying mask.
-    
-    Parameters:
-      binary_mask : ee.Image — binary at native resolution (0 or 1)
-      region_geom : ee.Geometry — clipping region
-    
-    Returns:
-      ee.Image — fractional mask at 1km, clipped to region
-    """
-    return (
-        binary_mask.unmask(0)
-        .reduceResolution(
-            reducer=ee.Reducer.mean(),
-            maxPixels=2000
-        )
-        .reproject(crs=DEFAULT_CRS, scale=TARGET_SCALE)
-        .clip(region_geom)
-    )
-
-
 # ════════════════════════════════════════════════════════════════════════════════
 # GROUP A — HANSEN × SIMS × LESIV COMBINATIONS
 # ════════════════════════════════════════════════════════════════════════════════
@@ -76,15 +50,26 @@ def _to_fractional_1km(binary_mask, region_geom):
 def harvest_filter_A1_H_S(state_geom, year):
     """A1 — Hansen × Sims logging. No Lesiv. Upper bound."""
     y_code = year - 2000
-    binary = lossyear.eq(y_code).And(logging_mask)
-    return _to_fractional_1km(binary, state_geom)
+    mask = (
+        lossyear.eq(y_code)
+        .And(logging_mask)
+        .selfMask()
+        .clip(state_geom)
+    )
+    return mask
 
 
 def harvest_filter_A2_H_S_L(state_geom, year):
     """A2 — Hansen × Sims × Lesiv. Validated approach."""
     y_code = year - 2000
-    binary = lossyear.eq(y_code).And(logging_mask).And(lesiv_managed_30m)
-    return _to_fractional_1km(binary, state_geom)
+    mask = (
+        lossyear.eq(y_code)
+        .And(logging_mask)
+        .And(lesiv_managed_30m)
+        .selfMask()
+        .clip(state_geom)
+    )
+    return mask
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -103,55 +88,46 @@ def _glc_forest_year_before(year):
     """GLC forest mask for the year BEFORE harvest at native resolution."""
     y_band_before = year - 2000
     glc_before = GLC_FSC30D_annual.mosaic().select(f'b{y_band_before}')
-    return glc_before.gte(51).And(glc_before.lte(92))
+    return glc_before.gte(51).And(glc_before.lte(92)).rename('glc_forest')
 
 
 def harvest_filter_A3_L_only(state_geom, year, rotation_cycle):
-    """A3 — Lesiv managed × GLC forest year before. Full stock at 1km."""
+    """A3 — Lesiv managed × GLC forest year before. Full stock."""
     glc_forest = _glc_forest_year_before(year)
     rotation_image = _build_rotation_image(rotation_cycle)
 
-    # Build at native resolution
-    binary = lesiv_managed_30m.And(glc_forest)
-    
-    # Convert to fractional 1km
-    fractional_mask = _to_fractional_1km(binary, state_geom)
-    
-    # Annual fraction: 1/rotation aggregated to 1km
-    rotation_1km = (
-        rotation_image
-        .updateMask(lesiv_managed_30m)
-        .reduceResolution(reducer=ee.Reducer.mean(), maxPixels=2000)
-        .reproject(crs=DEFAULT_CRS, scale=TARGET_SCALE)
+    managed_mask = (
+        lesiv_managed_30m
+        .And(glc_forest)
+        .selfMask()
         .clip(state_geom)
     )
-    annual_fraction = ee.Image(1).divide(rotation_1km)
 
-    return fractional_mask, annual_fraction
+    annual_fraction = ee.Image(1).divide(
+        rotation_image.updateMask(managed_mask)
+    )
+
+    return managed_mask, annual_fraction
 
 
 def harvest_filter_A4_L_not_S(state_geom, year, rotation_cycle):
-    """A4 — Lesiv × GLC × NOT Sims at 1km. Thinning gap."""
+    """A4 — Lesiv × GLC × NOT Sims. Thinning gap."""
     glc_forest = _glc_forest_year_before(year)
     rotation_image = _build_rotation_image(rotation_cycle)
 
-    binary = (
+    managed_mask = (
         lesiv_managed_30m
         .And(glc_forest)
         .And(logging_mask.unmask(0).Not())
-    )
-    fractional_mask = _to_fractional_1km(binary, state_geom)
-    
-    rotation_1km = (
-        rotation_image
-        .updateMask(lesiv_managed_30m)
-        .reduceResolution(reducer=ee.Reducer.mean(), maxPixels=2000)
-        .reproject(crs=DEFAULT_CRS, scale=TARGET_SCALE)
+        .selfMask()
         .clip(state_geom)
     )
-    annual_fraction = ee.Image(1).divide(rotation_1km)
 
-    return fractional_mask, annual_fraction
+    annual_fraction = ee.Image(1).divide(
+        rotation_image.updateMask(managed_mask)
+    )
+
+    return managed_mask, annual_fraction
 
 
 def harvest_filter_A5_L_H_pre2015(state_geom, year, rotation_cycle):
@@ -160,23 +136,19 @@ def harvest_filter_A5_L_H_pre2015(state_geom, year, rotation_cycle):
     rotation_image = _build_rotation_image(rotation_cycle)
     hansen_pre_2015 = lossyear.gt(0).And(lossyear.lt(15))
 
-    binary = (
+    managed_mask = (
         lesiv_managed_30m
         .And(glc_forest)
         .And(hansen_pre_2015)
-    )
-    fractional_mask = _to_fractional_1km(binary, state_geom)
-    
-    rotation_1km = (
-        rotation_image
-        .updateMask(lesiv_managed_30m)
-        .reduceResolution(reducer=ee.Reducer.mean(), maxPixels=2000)
-        .reproject(crs=DEFAULT_CRS, scale=TARGET_SCALE)
+        .selfMask()
         .clip(state_geom)
     )
-    annual_fraction = ee.Image(1).divide(rotation_1km)
 
-    return fractional_mask, annual_fraction
+    annual_fraction = ee.Image(1).divide(
+        rotation_image.updateMask(managed_mask)
+    )
+
+    return managed_mask, annual_fraction
 
 
 def harvest_filter_A6_L_not_H(state_geom, year, rotation_cycle):
@@ -185,23 +157,19 @@ def harvest_filter_A6_L_not_H(state_geom, year, rotation_cycle):
     rotation_image = _build_rotation_image(rotation_cycle)
     hansen_any_loss = lossyear.gt(0)
 
-    binary = (
+    managed_mask = (
         lesiv_managed_30m
         .And(glc_forest)
         .And(hansen_any_loss.unmask(0).Not())
-    )
-    fractional_mask = _to_fractional_1km(binary, state_geom)
-    
-    rotation_1km = (
-        rotation_image
-        .updateMask(lesiv_managed_30m)
-        .reduceResolution(reducer=ee.Reducer.mean(), maxPixels=2000)
-        .reproject(crs=DEFAULT_CRS, scale=TARGET_SCALE)
+        .selfMask()
         .clip(state_geom)
     )
-    annual_fraction = ee.Image(1).divide(rotation_1km)
 
-    return fractional_mask, annual_fraction
+    annual_fraction = ee.Image(1).divide(
+        rotation_image.updateMask(managed_mask)
+    )
+
+    return managed_mask, annual_fraction
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -218,8 +186,8 @@ def _build_glc_binary_annual():
         i = year - 2000
         band = GLC_FSC30D_annual.mosaic().select(f'b{i + 1}')
         glc_annual[year] = {
-            'closed': band.remap(closed_classes, [1]*5).eq(1),
-            'open':   band.remap(open_classes,   [1]*5).eq(1),
+            'closed': band.remap(closed_classes, [1]*5).eq(1).rename('closed'),
+            'open':   band.remap(open_classes,   [1]*5).eq(1).rename('open'),
         }
 
     return glc_annual
@@ -244,21 +212,20 @@ def harvest_filter_B1_GLC_thinning(region_geom, region_name):
         for offset in range(2, 8):
             recovery = recovery.Or(glc_annual[transition_year + offset]['closed'])
 
-        binary_thinning = (
+        thinning_mask = (
             baseline_closed
             .And(stable_closed)
             .And(becomes_open)
             .And(recovery)
+            .selfMask()
+            .clip(region_geom)
         )
-        
-        # Convert to fractional 1km
-        fractional_mask = _to_fractional_1km(binary_thinning, region_geom)
-        thinning_detections[transition_year] = fractional_mask
 
-    # Combined mask (max over all years still works for fractional masks)
+        thinning_detections[transition_year] = thinning_mask
+
     combined_thinning = ee.ImageCollection(
         list(thinning_detections.values())
-    ).max()
+    ).max().selfMask()
 
     return thinning_detections, combined_thinning
 
@@ -286,22 +253,22 @@ def harvest_filter_B1_GLC_thinning_adaptive(region_geom, region_name):
         for ry in recovery_years[1:]:
             recovery = recovery.Or(glc_annual[ry]['closed'])
 
-        binary_thinning = (
+        thinning_mask = (
             baseline_closed
             .And(stable_closed)
             .And(becomes_open)
             .And(recovery)
+            .selfMask()
+            .clip(region_geom)
         )
 
-        fractional_mask = _to_fractional_1km(binary_thinning, region_geom)
-
         thinning_detections[transition_year] = {
-            'mask': fractional_mask,
+            'mask': thinning_mask,
             'recovery_window': recovery_window_length,
         }
 
     masks_only = [d['mask'] for d in thinning_detections.values()]
-    combined_thinning = ee.ImageCollection(masks_only).max()
+    combined_thinning = ee.ImageCollection(masks_only).max().selfMask()
 
     return thinning_detections, combined_thinning
 
@@ -415,11 +382,11 @@ def _get_change_mask(lt, start_year, end_year, mag_threshold):
         'mmu':    {'value': 11},
     })
 
-    disturbance_binary = change_image.select('mag').gt(0)  # binary at 30m
-    year_image         = change_image.select('yod')
-    mag_image          = change_image.select('mag')
+    disturbance_mask = change_image.select('mag').gt(0).selfMask()
+    year_image       = change_image.select('yod')
+    mag_image        = change_image.select('mag')
 
-    return disturbance_binary, year_image, mag_image
+    return disturbance_mask, year_image, mag_image
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -431,18 +398,18 @@ def harvest_filter_LT1_alone(region_geom, region_name,
                               start_year=2001,
                               end_year=2022,
                               index_name='NBR'):
-    """LT1 — LandTrendr alone, fractional 1km mask."""
+    """LT1 — LandTrendr alone. Pure spectral disturbance."""
     sr_collection = _build_sr_collection(region_geom, start_year, end_year)
     lt = _run_landtrendr(sr_collection, index_name)
-    binary_30m, year_image, mag_image = _get_change_mask(
+    disturbance_mask, year_image, _ = _get_change_mask(
         lt, start_year, end_year, mag_threshold
     )
 
-    # Apply forest mask + convert to fractional 1km
-    binary_with_forest = binary_30m.And(forest_union_mask)
-    fractional_mask = _to_fractional_1km(binary_with_forest, region_geom)
+    mask = (disturbance_mask
+            .updateMask(forest_union_mask)
+            .clip(region_geom))
 
-    return fractional_mask, year_image
+    return mask, year_image
 
 
 def harvest_filter_LT2_keep_logging(region_geom, region_name,
@@ -450,10 +417,10 @@ def harvest_filter_LT2_keep_logging(region_geom, region_name,
                                      start_year=2001,
                                      end_year=2022,
                                      index_name='NBR'):
-    """LT2 — LandTrendr × NOT (Hansen × Sims non-logging)."""
+    """LT2 — LandTrendr × NOT (Hansen × Sims non-logging). Keep logging signal."""
     sr_collection = _build_sr_collection(region_geom, start_year, end_year)
     lt = _run_landtrendr(sr_collection, index_name)
-    binary_30m, year_image, mag_image = _get_change_mask(
+    disturbance_mask, year_image, _ = _get_change_mask(
         lt, start_year, end_year, mag_threshold
     )
 
@@ -468,14 +435,13 @@ def harvest_filter_LT2_keep_logging(region_geom, region_name,
     hansen_any_loss = lossyear.gt(0)
     exclude_mask = sims_non_logging.And(hansen_any_loss)
 
-    binary_filtered = (
-        binary_30m
-        .And(exclude_mask.unmask(0).Not())
-        .And(forest_union_mask)
-    )
-    fractional_mask = _to_fractional_1km(binary_filtered, region_geom)
+    mask = (disturbance_mask
+            .And(exclude_mask.unmask(0).Not())
+            .updateMask(forest_union_mask)
+            .selfMask()
+            .clip(region_geom))
 
-    return fractional_mask, year_image
+    return mask, year_image
 
 
 def harvest_filter_LT3_pure_thinning(region_geom, region_name,
@@ -483,10 +449,10 @@ def harvest_filter_LT3_pure_thinning(region_geom, region_name,
                                       start_year=2001,
                                       end_year=2022,
                                       index_name='NBR'):
-    """LT3 — LandTrendr × NOT (Hansen × Sims any class)."""
+    """LT3 — LandTrendr × NOT (Hansen × Sims any class). Pure thinning signal."""
     sr_collection = _build_sr_collection(region_geom, start_year, end_year)
     lt = _run_landtrendr(sr_collection, index_name)
-    binary_30m, year_image, mag_image = _get_change_mask(
+    disturbance_mask, year_image, _ = _get_change_mask(
         lt, start_year, end_year, mag_threshold
     )
 
@@ -494,11 +460,10 @@ def harvest_filter_LT3_pure_thinning(region_geom, region_name,
     hansen_any_loss = lossyear.gt(0)
     exclude_mask = sims_any.And(hansen_any_loss)
 
-    binary_filtered = (
-        binary_30m
-        .And(exclude_mask.unmask(0).Not())
-        .And(forest_union_mask)
-    )
-    fractional_mask = _to_fractional_1km(binary_filtered, region_geom)
+    mask = (disturbance_mask
+            .And(exclude_mask.unmask(0).Not())
+            .updateMask(forest_union_mask)
+            .selfMask()
+            .clip(region_geom))
 
-    return fractional_mask, year_image
+    return mask, year_image
