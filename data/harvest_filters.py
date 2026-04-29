@@ -175,6 +175,114 @@ def harvest_filter_A6_L_not_H(state_geom, year, rotation_cycle):
 
 
 # ════════════════════════════════════════════════════════════════════════════════
+# GROUP B — GLC CLOSED → OPEN → CLOSED STRUCTURAL THINNING (BINARY → selfMask)
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# Detects thinning as a structural transition in GLC FCS30D forest type:
+#   stable closed forest  →  briefly open  →  closed again
+#
+# Returns BINARY masks per transition year and a combined union mask.
+# Use mask_type='binary' in compute_metrics_export.
+# ════════════════════════════════════════════════════════════════════════════════
+
+
+def _build_glc_binary_annual():
+    """Build annual GLC binary masks — closed vs open forest — 2000-2022."""
+    closed_classes = [52, 62, 72, 82, 92]
+    open_classes   = [51, 61, 71, 81, 91]
+
+    glc_annual = {}
+    for year in range(2000, 2023):
+        i = year - 2000
+        band = GLC_FSC30D_annual.mosaic().select(f'b{i + 1}')
+        glc_annual[year] = {
+            'closed': band.remap(closed_classes, [1]*5).eq(1).rename('closed'),
+            'open':   band.remap(open_classes,   [1]*5).eq(1).rename('open'),
+        }
+    return glc_annual
+
+
+def harvest_filter_B1_GLC_thinning(region_geom, region_name):
+    """B1 — GLC closed → open → closed, fixed 7-year recovery window."""
+    glc_annual = _build_glc_binary_annual()
+
+    baseline_closed = (
+        glc_annual[2000]['closed']
+        .And(glc_annual[2001]['closed'])
+    )
+
+    thinning_detections = {}
+
+    for transition_year in range(2002, 2015):
+        stable_closed = glc_annual[transition_year - 1]['closed']
+        becomes_open  = glc_annual[transition_year]['open']
+
+        recovery = glc_annual[transition_year + 1]['closed']
+        for offset in range(2, 8):
+            recovery = recovery.Or(glc_annual[transition_year + offset]['closed'])
+
+        thinning_mask = (
+            baseline_closed
+            .And(stable_closed)
+            .And(becomes_open)
+            .And(recovery)
+            .selfMask()
+            .clip(region_geom)
+        )
+
+        thinning_detections[transition_year] = thinning_mask
+
+    combined_thinning = ee.ImageCollection(
+        list(thinning_detections.values())
+    ).max().selfMask()
+
+    return thinning_detections, combined_thinning
+
+
+def harvest_filter_B1_GLC_thinning_adaptive(region_geom, region_name):
+    """B1a — GLC closed → open → closed, adaptive recovery window."""
+    glc_annual = _build_glc_binary_annual()
+
+    baseline_closed = (
+        glc_annual[2000]['closed']
+        .And(glc_annual[2001]['closed'])
+    )
+
+    thinning_detections = {}
+
+    for transition_year in range(2002, 2021):
+        stable_closed = glc_annual[transition_year - 1]['closed']
+        becomes_open  = glc_annual[transition_year]['open']
+
+        max_recovery_year = min(transition_year + 7, 2022)
+        recovery_years = list(range(transition_year + 1, max_recovery_year + 1))
+        recovery_window_length = len(recovery_years)
+
+        recovery = glc_annual[recovery_years[0]]['closed']
+        for ry in recovery_years[1:]:
+            recovery = recovery.Or(glc_annual[ry]['closed'])
+
+        thinning_mask = (
+            baseline_closed
+            .And(stable_closed)
+            .And(becomes_open)
+            .And(recovery)
+            .selfMask()
+            .clip(region_geom)
+        )
+
+        thinning_detections[transition_year] = {
+            'mask': thinning_mask,
+            'recovery_window': recovery_window_length,
+        }
+
+    masks_only = [d['mask'] for d in thinning_detections.values()]
+    combined_thinning = ee.ImageCollection(masks_only).max().selfMask()
+
+    return thinning_detections, combined_thinning
+
+
+# ════════════════════════════════════════════════════════════════════════════════
 # GROUP HT — HANSEN SPECTRAL THINNING (first→last delta, NEGATION → BINARY)
 # ════════════════════════════════════════════════════════════════════════════════
 #
