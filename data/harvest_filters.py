@@ -286,7 +286,18 @@ def harvest_filter_HT2_lesiv(state_geom,
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# GROUP LT — LANDTRENDR (focus on LT3 pure thinning, NEGATION → BINARY)
+# GROUP LT — LANDTRENDR (LT4: Lesiv pure thinning, NEGATION → BINARY)
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# LT4 is the canonical LandTrendr-based pure thinning detector.
+# It combines:
+#   - LandTrendr spectral disturbance (sees thinning as gradual canopy change)
+#   - Lesiv managed forest filter (only managed forest pixels)
+#   - NOT Hansen lossyear (excludes clearcuts, isolating thinning)
+#   - forest_union_mask (forest pixels only)
+#
+# Returns a BINARY mask at 30m native resolution.
+# Use mask_type='binary' in compute_metrics_export.
 # ════════════════════════════════════════════════════════════════════════════════
 
 TM_BAND_NAMES = ['B1', 'B2', 'B3', 'B4', 'B5', 'B7']
@@ -399,12 +410,36 @@ def _get_change_mask(lt, start_year, end_year, mag_threshold):
     return disturbance_mask, year_image
 
 
-def harvest_filter_LT3_pure_thinning(region_geom, region_name,
-                                      mag_threshold=200,
-                                      start_year=2001,
-                                      end_year=2022,
-                                      index_name='NBR'):
-    """LT3 — LandTrendr × Lesiv × NOT Hansen. Pure thinning, binary mask."""
+def harvest_filter_LT4_lesiv_pure_thinning(region_geom, region_name,
+                                            mag_threshold=200,
+                                            start_year=2001,
+                                            end_year=2022,
+                                            index_name='NBR'):
+    """
+    LT4 — LandTrendr × Lesiv × NOT Hansen × forest_union.
+    
+    Pure spectral thinning detection in Lesiv-managed forest, excluding
+    Hansen-detected clearcut events.
+    
+    Logic:
+      - LandTrendr detects spectral disturbance (year of greatest change)
+      - Lesiv filters to managed forest only (ground-validated)
+      - NOT Hansen excludes confirmed clearcuts
+      - forest_union ensures pixel was forest at some point
+    
+    Returns BINARY mask at 30m native resolution.
+    Use mask_type='binary' in compute_metrics_export.
+    
+    Parameters
+    ----------
+    mag_threshold : int
+      LandTrendr magnitude threshold × 1000.
+        200 → 0.2 NBR drop (sensitive thinning)
+        300 → 0.3 NBR drop (moderate)
+        500 → 0.5 NBR drop (heavy/near-clearcut)
+    index_name : {'NBR', 'B7'}
+      Spectral index for LandTrendr. B7 = SWIR2 in TM-equivalent naming.
+    """
     sr_collection = _build_sr_collection(region_geom, start_year, end_year)
     lt = _run_landtrendr(sr_collection, index_name)
     disturbance_mask, year_image = _get_change_mask(
